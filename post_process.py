@@ -464,7 +464,7 @@ def main():
 		base_url, machine_id, machine_token, machine_api_key = login.get_custom_machine_settings(vicki_app, logger)
 
 		queue = Communication()
-		proc = Thread(target=queue.listen(), daemon=True, name='Communication')
+		proc = Thread(target=queue.listen, daemon=True, name='Communication')
 		proc.start()
 
 		logger.info('   MACHINE ID: {}'.format(machine_id))
