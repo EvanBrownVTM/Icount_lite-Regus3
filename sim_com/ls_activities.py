@@ -1,6 +1,9 @@
 #!/usr/bin/env python
+import sys
+sys.path.append('..')
 import pika
 import json
+import utils_lite.configSrc as cfg
 
 credentials = pika.PlainCredentials(cfg.pika_username,cfg.pika_username)
 parameters = pika.ConnectionParameters('localhost',5672,'/',credentials)
