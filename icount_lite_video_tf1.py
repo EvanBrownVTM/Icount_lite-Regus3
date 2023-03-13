@@ -574,6 +574,8 @@ def main(transid):
 				print(fps)
 	out.release()
 	#************Upload detections***********
+	with open('archive/{}/ls_activities.pickle'.format(transid), 'wb') as f:
+    	ls_activities = pickle.load(f)
 	data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
 	mess = json.dumps(data)
 	channel2.basic_publish(exchange='',
