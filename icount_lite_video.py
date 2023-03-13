@@ -24,7 +24,7 @@ import numpy as np
 import cv2
 import json
 import pycuda.autoinit  # This is needed for initializing CUDA driver
-import configSrc as cfg
+import utils_lite.configSrc as cfg
 import tensorflow as tf
 from PIL import Image
 import requests
@@ -55,7 +55,7 @@ sys.stderr.write=logger.error
 
 #Setting
 maxCamerasToUse = cfg.maxCamerasToUse
-archive_size = cfg.archive_size
+input_size = cfg.input_size
 save_size = cfg.save_size
 display_mode = cfg.display_mode
 pika_flag = cfg.pika_flag
@@ -88,7 +88,7 @@ def parse(serialized):
 	image = tf.io.decode_image(image)
 
 	return {'image':image, 'timestamp':timestamp} #, 'frame_cnt': frame_cnt}
-def readSingleTFRecord(n_cam, archive_size):
+def readSingleTFRecord(n_cam, input_size):
 	if not os.path.exists("{base_path}archive/{archive_name}/cam{n_cam}".format(base_path = cfg.base_path, archive_name=transid, n_cam=n_cam)):
 		os.mkdir("{base_path}archive/{archive_name}/cam{n_cam}".format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam))
 	
@@ -111,11 +111,11 @@ def readSingleTFRecord(n_cam, archive_size):
 	return frame_cnt
 
 #parse tfrecords to jpg's
-def readTfRecords(archive_name, archive_size, total_n_cams, logger):
+def readTfRecords(archive_name, input_size, total_n_cams, logger):
 	frame_cnts = []
 	print('Beginning extraction: ', archive_name)
 	for n_cam in range(total_n_cams):
-		frame_cnts.append(readSingleTFRecord(n_cam, archive_size))
+		frame_cnts.append(readSingleTFRecord(n_cam, input_size))
 
 	print('Extracted frames from [{total_n_cams}] cameras: '.format(total_n_cams = total_n_cams) + " ".join([str(x) for x in frame_cnts]))
 		
@@ -242,21 +242,21 @@ def infer_engine(trt_yolo, cam0_solver, cam1_solver, cam2_solver, avt0, avt1, av
 	det_frame2, clss2, new_boxes2, confs2 = trt_detect(frame2, trt_yolo, conf_th, vis)
 
 	file2info = {}
-	file2info['bboxes'] = np.asarray(np.asarray(new_boxes0, dtype=np.int32) / archive_size * save_size, dtype = np.int32).tolist()
+	file2info['bboxes'] = np.asarray(np.asarray(new_boxes0, dtype=np.int32) / input_size * save_size, dtype = np.int32).tolist()
 	file2info['classes'] = np.asarray(clss0, dtype = np.int32).tolist()
 	file2info['scores'] = np.asarray(confs0).tolist()
 	if not os.path.exists("{}archive/{}/cam0/prod".format(cfg.base_path, transid)):
 		os.makedirs("{}archive/{}/cam0/prod".format(cfg.base_path, transid))
 
 	file2info1 = {}
-	file2info1['bboxes'] = np.asarray(np.asarray(new_boxes1, dtype=np.int32) / archive_size * save_size, dtype = np.int32).tolist()
+	file2info1['bboxes'] = np.asarray(np.asarray(new_boxes1, dtype=np.int32) / input_size * save_size, dtype = np.int32).tolist()
 	file2info1['classes'] = np.asarray(clss1, dtype = np.int32).tolist()
 	file2info1['scores'] = np.asarray(confs1).tolist()
 	if not os.path.exists("{}archive/{}/cam1/prod".format(cfg.base_path, transid)):
 		os.makedirs("{}archive/{}/cam1/prod".format(cfg.base_path, transid))
 
 	file2info2 = {}
-	file2info2['bboxes'] = np.asarray(np.asarray(new_boxes2, dtype=np.int32) / archive_size * save_size, dtype = np.int32).tolist()
+	file2info2['bboxes'] = np.asarray(np.asarray(new_boxes2, dtype=np.int32) / input_size * save_size, dtype = np.int32).tolist()
 	file2info2['classes'] = np.asarray(clss2, dtype = np.int32).tolist()
 	file2info2['scores'] = np.asarray(confs2).tolist()
 	if not os.path.exists("{}archive/{}/cam2/prod".format(cfg.base_path, transid)):
@@ -441,7 +441,7 @@ def main(transid):
 	print('begin main fxn')
 	#extract tfrecords
 
-	readTfRecords(transid, archive_size, cfg.maxCamerasToUse, logger)
+	readTfRecords(transid, input_size, cfg.maxCamerasToUse, logger)
 
 	#load frames
 	camera_dirs = [os.path.join(cfg.base_path, 'archive', transid, x) for x in ['cam0', 'cam1', 'cam2']]
@@ -513,16 +513,16 @@ def main(transid):
 
 		if cameraContextValue == 0:
 			frame_cnt0 += 1
-			frame0 = cv2.resize(np.uint8(frame), (archive_size, archive_size))
+			frame0 = cv2.resize(np.uint8(frame), (input_size, input_size))
 			check_list[0] = True
 		elif cameraContextValue == 1:
 			frame_cnt1 += 1
-			frame1 = cv2.resize(np.uint8(frame), (archive_size, archive_size))
+			frame1 = cv2.resize(np.uint8(frame), (input_size, input_size))
 			# frame1 = cv2.rotate(frame1, cv2.ROTATE_90_COUNTERCLOCKWISE)
 			check_list[1] = True
 		else:
 			frame_cnt2 += 1
-			frame2 = cv2.resize(np.uint8(frame), (archive_size, archive_size))
+			frame2 = cv2.resize(np.uint8(frame), (input_size, input_size))
 			# frame2 = cv2.rotate(frame2, cv2.ROTATE_90_COUNTERCLOCKWISE)
 			check_list[2] = True
 						
@@ -550,7 +550,7 @@ def main(transid):
 			if display_mode:
 				if show_contours:
 						for img, contours in zip([det_frame0, det_frame1, det_frame2], [contours0, contours1, contours2]):
-							draw_contours(img, contours, archive_size)
+							draw_contours(img, contours, input_size)
 				img_hstack = det_frame0
 				img_hstack = np.hstack((img_hstack, det_frame1))
 				img_hstack = np.hstack((img_hstack, det_frame2))

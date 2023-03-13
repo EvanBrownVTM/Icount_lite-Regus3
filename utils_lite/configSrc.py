@@ -31,8 +31,9 @@ cam2_zone = 'utils_lite/regus_live_cam2.npz'
 archive_flag = True
 maxCamerasToUse = 3
 input_size = 416
-save_size = 200
+save_size = 416
 display_mode = False
 pika_flag = True
 icount_mode = False
-
+show_contours = False
+model_name = "yolov4x-mish-416"
