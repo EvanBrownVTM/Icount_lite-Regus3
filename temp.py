@@ -1,0 +1,10 @@
+import json
+data = "{'cmd': 'Done', 'transid': 'Testtrans', 'cv_activities': [], 'ls_activities': \"{'user_activity_instance': {'machine_id': '72b4fa10-8aec-4e60-9404-154996fc0f66', 'machine_name': 'Subway UCSD {Marwaha Group}', 'report_id': '1873d135-d06a-413a-878e-8cc92ce5b1f6', 'user_activities': [{'id': 'a6593663-5b0d-4486-a401-85cdd53ae000', 'user_activity_type': 'MACHINE_MEDIA', 'row': 0, 'column': 0, 'count': 0, 'in_use_count': 0, 'previous_count': 0, 'product_id': -1, 'product_name': -1, 'activity_time': '2023-03-09:12:01:30', 'activity_time_str': '2023-03023-03-09:12:01:30'}, {'id': '1a2bc289-8189-4fd1-b813-a72db1591ab4', 'user_activity_type': 'DOOR_OPENED', 'row': 0, 'column': 0, 'count': 0, 'in_use_count': 0, 'previous_count': 0, 'product_id': -1, 'product_name': -1, 'activity_time': '2023-03-09:12:01:34', 'activity_time_str': '2023-03-09:12:01:34'}, {'id': 'b3dcbbf4-efa2-4248-9d4b-5180d4a9e8f1', 'user_activity_type': 'USER_PICKUP', 'row': 3, 'column': 4, 'count': 1, 'in_use_count': 1, 'previous_count': 2, 'product_id': 'b117d352-999c-4b64-92df-c4323e579d41', 'product_name': '6-inch Spicy Italian Sub', 'activity_time': '2023-03-09:12:01:42', 'activity_time_str': '2023-03-09:12:01:42'}, {'id': 'aea4c594-3f8a-4fdd-9561-74b5f139755e', 'user_activity_type': 'DOOR_CLOSED', 'row': 0, 'column': 0, 'count': 0, 'in_use_count': 0, 'previous_count': 0, 'product_id': -1, 'product_name': -1, 'activity_time': '2023-03-09:12:01:46', 'activity_time_str': '2023-03-09:12:01:46'}]}\", 'correlation_id': '156.1678392117923887', 'timestamp': 0, 'status': 0, 'error': -1, 'message': -1, 'path': -1, 'Error': -1, 'fault': -1}"
+mess = json.dumps(data.replace("'", "\""))
+# print(mess)
+recv_file = json.loads(mess)
+print(recv_file)
+ls_activities = recv_file['ls_activities']
+print(ls_activities)
+ls_activities_json = json.loads(str(ls_activities).replace('-1', '-1'))
+print(ls_activities_json)
