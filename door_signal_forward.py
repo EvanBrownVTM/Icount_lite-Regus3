@@ -7,13 +7,13 @@ import json
 import pickle
 
 #RabbitMQ Initialization
-def initializeChannels(logger, queue_list, ip, credentials = pika.PlainCredentials('guest','guest')):
+def initializeChannels(logger, queue_list, ip, credentials = pika.PlainCredentials(cfg.pika_username,cfg.pika_username)):
 	'''
 		queue_list = ['cvRequest', 'cvPost']
 		ip = 'localhost'
 	'''
 	logger.info('Initializing RMQ queues: ' + ' '.join(queue_list) + ' at : ' + ip)
-	credentials = pika.PlainCredentials('guest','guest')
+	credentials = pika.PlainCredentials(cfg.pika_username,cfg.pika_username)
 	parameters = pika.ConnectionParameters(ip, 5672, '/', credentials, heartbeat=0, blocked_connection_timeout=3000)
 	connection = pika.BlockingConnection(parameters)
 	channel_list = []

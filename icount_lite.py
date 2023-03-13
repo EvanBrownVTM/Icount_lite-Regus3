@@ -416,251 +416,257 @@ def img2jpeg(image):
 	byte_im = im_buf_arr.tobytes()
 	return byte_im
 
-if pika_flag:
-	channel, channel2, connection = initializeChannel()
+def main():
+	if pika_flag:
+		channel, channel2, connection = initializeChannel()
 
-if icount_mode:
-	logger.info('FUNCTION: Icount')
-	avt0 = AVT()
-	avt1 = AVT()
-	avt2 = AVT()
+	if icount_mode:
+		logger.info('FUNCTION: Icount')
+		avt0 = AVT()
+		avt1 = AVT()
+		avt2 = AVT()
 
-	trt_yolo = init()
-	vis = BBoxVisualization(cls_dict)
+		trt_yolo = init()
+		vis = BBoxVisualization(cls_dict)
 
-	cam0_solver = FrontCam('cam0', cfg.cam0_zone)
-	cam1_solver = SideCam('cam1', cfg.cam1_zone)
-	cam2_solver = SideCam('cam2', cfg.cam2_zone)
+		cam0_solver = FrontCam('cam0', cfg.cam0_zone)
+		cam1_solver = SideCam('cam1', cfg.cam1_zone)
+		cam2_solver = SideCam('cam2', cfg.cam2_zone)
 
-else:
-	logger.info('FUNCTION: Recording only')
+	else:
+		logger.info('FUNCTION: Recording only')
 
-tic = time.time()
+	tic = time.time()
 
-cameras, dev_len = initializeCamera([cfg.camera_map["cam0"], cfg.camera_map["cam1"], cfg.camera_map["cam2"]])
-grabbing_status = 0
-frame_cnt0 = 0
-frame_cnt1 = 0
-frame_cnt2 = 0
-act_flag = 0
-clear_flag = 0
-transid = 'trans_init'
-cv_activities = []
-check_list = [ False for i in range(dev_len)]
-if pika_flag:
-	door_state = 'Init'
-else:
-	door_state = 'DoorOpened'
-	cameras.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+	cameras, dev_len = initializeCamera([cfg.camera_map["cam0"], cfg.camera_map["cam1"], cfg.camera_map["cam2"]])
+	grabbing_status = 0
+	frame_cnt0 = 0
+	frame_cnt1 = 0
+	frame_cnt2 = 0
+	act_flag = 0
+	clear_flag = 0
+	transid = 'trans_init'
+	cv_activities = []
+	check_list = [ False for i in range(dev_len)]
+	if pika_flag:
+		door_state = 'Init'
+	else:
+		door_state = 'DoorOpened'
+		cameras.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
 
 
 
-while True:
-	try:
-		if pika_flag:
-			_,_,recv = channel.basic_get('cvIcount')
-			if recv != None:
-				recv = str(recv,'utf-8')
-				recv =json.loads(recv)
-				#clear_flag = 0
-				if recv["cmd"] == 'DoorOpened':
-					transid = recv["parm1"].split(":")[0]
-					door_info = recv["parm1"].split(":")[1]
-					logger.info("")
-					logger.info("   RECV: {} / cvIcount".format(recv["cmd"]))
-					logger.info("      TRANSID: {}".format(transid))
-					door_state = "DoorOpened"
-					duration_time = 0
-					frame_cnt0 = 0
-					frame_cnt1 = 0
-					frame_cnt2 = 0
-					cv_activities_cam0 = []
-					cv_activities_cam1 = []
-					cv_activities_cam2 = []
-					cv_pick_cam0 = []
-					cv_ret_cam0 = []
-					cv_pick_cam1 = []
-					cv_ret_cam1 = []
-					cv_pick_cam2 = []
-					cv_ret_cam2 = []
-					matched_pick_cam01 = []
-					matched_return_cam01 = []
-					matched_pick_cam02 = []
-					matched_return_cam02 = []
-					serialized = [None for i in range(dev_len)]
-
-					cv_activities = []
-					ls_activities = []
-					if grabbing_status == 0 and door_info == 'True': # Actual application and
-						cameras.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
-						grabbing_status = 1
-						start_time = time.time()
-						logger.info("      Retail mode: Starting record")
-
-				elif recv["cmd"] == 'DoorLocked':
-					transid = recv["parm1"]
-					logger.info("      TRANSID: {}".format(transid))
-					logger.info("   RECV: {} / cvIcount".format(recv["cmd"]))
-					door_state = "DoorLocked"
-
-					if grabbing_status == 1:
-						cameras.StopGrabbing()
-						grabbing_status = 0
-						stop_time = time.time()
-						duration_time = int(stop_time - start_time)
-						logger.info("   Transaction duration: {}s".format(duration_time))
-						if duration_time >= cfg.thresh_cv_time:
-							logger.info("   Transaction time threshold exceeded")
-							if cfg.sms_alert:
-								sms_text(tsv_url, duration_time)
+	while True:
+		try:
+			if pika_flag:
+				_,_,recv = channel.basic_get('cvIcount')
+				if recv != None:
+					recv = str(recv,'utf-8')
+					recv =json.loads(recv)
+					#clear_flag = 0
+					if recv["cmd"] == 'DoorOpened':
+						transid = recv["parm1"].split(":")[0]
+						door_info = recv["parm1"].split(":")[1]
 						logger.info("")
-					#act_flag = 1 #only for simulation, please remove this line in real transaction
+						logger.info("   RECV: {} / cvIcount".format(recv["cmd"]))
+						logger.info("      TRANSID: {}".format(transid))
+						door_state = "DoorOpened"
+						duration_time = 0
+						frame_cnt0 = 0
+						frame_cnt1 = 0
+						frame_cnt2 = 0
+						cv_activities_cam0 = []
+						cv_activities_cam1 = []
+						cv_activities_cam2 = []
+						cv_pick_cam0 = []
+						cv_ret_cam0 = []
+						cv_pick_cam1 = []
+						cv_ret_cam1 = []
+						cv_pick_cam2 = []
+						cv_ret_cam2 = []
+						matched_pick_cam01 = []
+						matched_return_cam01 = []
+						matched_pick_cam02 = []
+						matched_return_cam02 = []
+						serialized = [None for i in range(dev_len)]
 
-				elif recv["cmd"] == "ActivityID":
-					ls_activities = recv["parm1"]
-					if not cfg.ThirdPartyPos:
-						act_flag = 1
+						cv_activities = []
+						ls_activities = []
+						if grabbing_status == 0 and door_info == 'True': # Actual application and
+							cameras.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+							grabbing_status = 1
+							start_time = time.time()
+							logger.info("      Retail mode: Starting record")
 
-				elif recv["cmd"] == "OrderSettled":
-					logger.info("   RECV: {} / cvIcount".format(recv["cmd"]))
-					logger.info("   RECV: Map /{}".format(recv["parm1"]))
-					transid_old = recv["parm1"].split(":")[0]
-					transid_new = recv["parm1"].split(":")[1]
-					if transid_old == transid:
-						os.system('mv archive/{} archive/{}'.format(transid, transid_new))
-						transid = transid_new
-						act_flag = 1
+					elif recv["cmd"] == 'DoorLocked':
+						transid = recv["parm1"]
+						logger.info("      TRANSID: {}".format(transid))
+						logger.info("   RECV: {} / cvIcount".format(recv["cmd"]))
+						door_state = "DoorLocked"
 
-		if door_state == "DoorOpened":
-			clear_flag = 1
-			if cameras.IsGrabbing():
-				try:
-					grabResult = cameras.RetrieveResult(10000, pylon.TimeoutHandling_ThrowException)
-				except:
-					logger.info("Camera Disconnected")
-					cameras.Close()
-					cameras, dev_len = initializeCamera([cfg.camera_map["cam0"], cfg.camera_map["cam1"], cfg.camera_map["cam2"]])
-					check_list = [ False for i in range(dev_len)]
-					cameras.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
-					continue
+						if grabbing_status == 1:
+							cameras.StopGrabbing()
+							grabbing_status = 0
+							stop_time = time.time()
+							duration_time = int(stop_time - start_time)
+							logger.info("   Transaction duration: {}s".format(duration_time))
+							if duration_time >= cfg.thresh_cv_time:
+								logger.info("   Transaction time threshold exceeded")
+								if cfg.sms_alert:
+									sms_text(tsv_url, duration_time)
+							logger.info("")
+						#act_flag = 1 #only for simulation, please remove this line in real transaction
 
-				cameraContextValue = grabResult.GetCameraContext()
+					elif recv["cmd"] == "ActivityID":
+						ls_activities = recv["parm1"]
+						if not cfg.ThirdPartyPos:
+							act_flag = 1
 
-				if grabResult.GrabSucceeded():
-					if cameraContextValue == 0:
-						frame_cnt0 += 1
-						frame0 = cv2.resize(np.uint8(grabResult.Array), (input_size, input_size))
-						check_list[0] = True
+					elif recv["cmd"] == "OrderSettled":
+						logger.info("   RECV: {} / cvIcount".format(recv["cmd"]))
+						logger.info("   RECV: Map /{}".format(recv["parm1"]))
+						transid_old = recv["parm1"].split(":")[0]
+						transid_new = recv["parm1"].split(":")[1]
+						if transid_old == transid:
+							os.system('mv archive/{} archive/{}'.format(transid, transid_new))
+							transid = transid_new
+							act_flag = 1
+
+			if door_state == "DoorOpened":
+				clear_flag = 1
+				if cameras.IsGrabbing():
+					try:
+						grabResult = cameras.RetrieveResult(10000, pylon.TimeoutHandling_ThrowException)
+					except:
+						logger.info("Camera Disconnected")
+						cameras.Close()
+						cameras, dev_len = initializeCamera([cfg.camera_map["cam0"], cfg.camera_map["cam1"], cfg.camera_map["cam2"]])
+						check_list = [ False for i in range(dev_len)]
+						cameras.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+						continue
+
+					cameraContextValue = grabResult.GetCameraContext()
+
+					if grabResult.GrabSucceeded():
+						if cameraContextValue == 0:
+							frame_cnt0 += 1
+							frame0 = cv2.resize(np.uint8(grabResult.Array), (input_size, input_size))
+							check_list[0] = True
+							if archive_flag:
+								data = {
+									'bytes': _bytes_feature(value = img2jpeg(cv2.resize(frame0, (save_size, save_size)))), 
+									'timestamp': _bytes_feature(value = time.strftime(timestamp_format).encode('utf-8'))
+									}
+						elif cameraContextValue == 1:
+							frame_cnt1 += 1
+							frame1 = cv2.resize(np.uint8(grabResult.Array), (input_size, input_size))
+							frame1 = cv2.rotate(frame1, cv2.ROTATE_90_COUNTERCLOCKWISE)
+							check_list[1] = True
+							if archive_flag:
+								data = {
+									'bytes': _bytes_feature(value = img2jpeg(cv2.resize(frame1, (save_size, save_size)))), 
+									'timestamp': _bytes_feature(value = time.strftime(timestamp_format).encode('utf-8'))
+									}
+
+						else:
+							frame_cnt2 += 1
+							frame2 = cv2.resize(np.uint8(grabResult.Array), (input_size, input_size))
+							frame2 = cv2.rotate(frame2, cv2.ROTATE_90_COUNTERCLOCKWISE)
+							check_list[2] = True
+							if archive_flag:
+								data = {
+									'bytes': _bytes_feature(value = img2jpeg(cv2.resize(frame2, (save_size, save_size)))), 
+									'timestamp': _bytes_feature(value = time.strftime(timestamp_format).encode('utf-8'))
+									}
+
 						if archive_flag:
-							data = {
-								  'bytes': _bytes_feature(value = img2jpeg(cv2.resize(frame0, (save_size, save_size)))), 
-								  'timestamp': _bytes_feature(value = time.strftime(timestamp_format).encode('utf-8'))
-								}
-					elif cameraContextValue == 1:
-						frame_cnt1 += 1
-						frame1 = cv2.resize(np.uint8(grabResult.Array), (input_size, input_size))
-						frame1 = cv2.rotate(frame1, cv2.ROTATE_90_COUNTERCLOCKWISE)
-						check_list[1] = True
+							features = tf.train.Features(feature=data)
+							example = tf.train.Example(features=features)
+							serialized[cameraContextValue] = example.SerializeToString()
+
+							if init_process == True:
+								if not os.path.exists("{}archive".format(cfg.base_path)):
+																	os.mkdir("{}archive".format(cfg.base_path))
+
+								if not os.path.exists("{}archive/{}".format(cfg.base_path, transid)):
+									os.mkdir("{}archive/{}".format(cfg.base_path, transid))
+								writer0 = tf.python_io.TFRecordWriter("{}archive/{}/img_0.tfrecords".format(cfg.base_path, transid))
+								writer1 = tf.python_io.TFRecordWriter("{}archive/{}/img_1.tfrecords".format(cfg.base_path, transid))
+								writer2 = tf.python_io.TFRecordWriter("{}archive/{}/img_2.tfrecords".format(cfg.base_path, transid))
+								init_process = False
+
+					if all(check_list):
 						if archive_flag:
-							data = {
-								  'bytes': _bytes_feature(value = img2jpeg(cv2.resize(frame1, (save_size, save_size)))), 
-								  'timestamp': _bytes_feature(value = time.strftime(timestamp_format).encode('utf-8'))
-								}
+							writer0.write(serialized[0])
+							writer1.write(serialized[1])
+							writer2.write(serialized[2])
 
-					else:
-						frame_cnt2 += 1
-						frame2 = cv2.resize(np.uint8(grabResult.Array), (input_size, input_size))
-						frame2 = cv2.rotate(frame2, cv2.ROTATE_90_COUNTERCLOCKWISE)
-						check_list[2] = True
-						if archive_flag:
-							data = {
-								  'bytes': _bytes_feature(value = img2jpeg(cv2.resize(frame2, (save_size, save_size)))), 
-								  'timestamp': _bytes_feature(value = time.strftime(timestamp_format).encode('utf-8'))
-								}
+						timestr = time.strftime(timestamp_format)
+						check_list = np.logical_not(check_list)
+						if icount_mode:
+							det_frame0, det_frame1, det_frame2, cart = infer_engine(timestr, frame0, frame1, frame2, frame_cnt0, frame_cnt1, frame_cnt2, cv_activities_cam0, cv_activities_cam1, cv_activities_cam2, cv_pick_cam0, cv_ret_cam0, cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2)
+							#Performing simple inference / cam2 only
+							cv_activities = cv_activities_cam2  + cv_activities_cam0 + cv_activities_cam1
 
-					if archive_flag:
-						features = tf.train.Features(feature=data)
-						example = tf.train.Example(features=features)
-						serialized[cameraContextValue] = example.SerializeToString()
+							#cv_pick_cam0, cv_ret_cam0, cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2 = fuse_cam01_02_activities(cv_pick_cam0, cv_ret_cam0, cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2, \																									matched_pick_cam01, matched_return_cam01, matched_pick_cam02, matched_return_cam02)
+							#cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2 = fuse_cam12_activities(cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2, cv_activities)matched_return_cam01,
+							#matched_pick_cam01, matched_pick_cam02, matched_return_cam01, matched_return_cam02 = fuse_all_cams_activities(matched_pick_cam01, matched_pick_cam02, matched_return_cam01, matched_return_cam02, cv_activities)
 
-						if init_process == True:
-							if not os.path.exists("{}archive".format(cfg.base_path)):
-                                                                os.mkdir("{}archive".format(cfg.base_path))
+						if display_mode:
+							img_hstack = det_frame0
+							img_hstack = np.hstack((img_hstack, det_frame1))
+							img_hstack = np.hstack((img_hstack, det_frame2))
+							img_hstack = show_fps(img_hstack, fps)
+							displayCart(img_hstack, cart)
 
-							if not os.path.exists("{}archive/{}".format(cfg.base_path, transid)):
-								os.mkdir("{}archive/{}".format(cfg.base_path, transid))
-							writer0 = tf.python_io.TFRecordWriter("{}archive/{}/img_0.tfrecords".format(cfg.base_path, transid))
-							writer1 = tf.python_io.TFRecordWriter("{}archive/{}/img_1.tfrecords".format(cfg.base_path, transid))
-							writer2 = tf.python_io.TFRecordWriter("{}archive/{}/img_2.tfrecords".format(cfg.base_path, transid))
-							init_process = False
+							cv2.imshow('Yo', img_hstack[:,:,::-1])
 
-				if all(check_list):
-					if archive_flag:
-						writer0.write(serialized[0])
-						writer1.write(serialized[1])
-						writer2.write(serialized[2])
+							key = cv2.waitKey(1)
+							if key == 27:  # ESC key: quit program
+								break
 
-					timestr = time.strftime(timestamp_format)
-					check_list = np.logical_not(check_list)
-					if icount_mode:
-						det_frame0, det_frame1, det_frame2, cart = infer_engine(timestr, frame0, frame1, frame2, frame_cnt0, frame_cnt1, frame_cnt2, cv_activities_cam0, cv_activities_cam1, cv_activities_cam2, cv_pick_cam0, cv_ret_cam0, cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2)
-						#Performing simple inference / cam2 only
-						cv_activities = cv_activities_cam2  + cv_activities_cam0 + cv_activities_cam1
+						toc = time.time()
+						curr_fps = 1.0 / (toc- tic)
+						fps = curr_fps if fps == 0.0 else (fps*0.95 + curr_fps*0.05)
+						tic = toc
+						if frame_cnt0 % 20 == 0:
+							print(fps)
 
-						#cv_pick_cam0, cv_ret_cam0, cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2 = fuse_cam01_02_activities(cv_pick_cam0, cv_ret_cam0, cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2, \																									matched_pick_cam01, matched_return_cam01, matched_pick_cam02, matched_return_cam02)
-						#cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2 = fuse_cam12_activities(cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2, cv_activities)matched_return_cam01,
-						#matched_pick_cam01, matched_pick_cam02, matched_return_cam01, matched_return_cam02 = fuse_all_cams_activities(matched_pick_cam01, matched_pick_cam02, matched_return_cam01, matched_return_cam02, cv_activities)
-
-					if display_mode:
-						img_hstack = det_frame0
-						img_hstack = np.hstack((img_hstack, det_frame1))
-						img_hstack = np.hstack((img_hstack, det_frame2))
-						img_hstack = show_fps(img_hstack, fps)
-						displayCart(img_hstack, cart)
-
-						cv2.imshow('Yo', img_hstack[:,:,::-1])
-
-						key = cv2.waitKey(1)
-						if key == 27:  # ESC key: quit program
-							break
-
-					toc = time.time()
-					curr_fps = 1.0 / (toc- tic)
-					fps = curr_fps if fps == 0.0 else (fps*0.95 + curr_fps*0.05)
-					tic = toc
-					if frame_cnt0 % 20 == 0:
-						print(fps)
-
-				grabResult.Release()
+					grabResult.Release()
 
 
-		elif door_state == "DoorLocked" and clear_flag == 1:
-			if archive_flag and door_info == 'True':
-				writer0.close()
-				writer1.close()
-				writer2.close()
-				init_process = True
-			clear_flag = 0
+			elif door_state == "DoorLocked" and clear_flag == 1:
+				if archive_flag and door_info == 'True':
+					writer0.close()
+					writer1.close()
+					writer2.close()
+					init_process = True
+				clear_flag = 0
 
-		elif door_state == "DoorLocked" and act_flag == 1:
-			if len(cv_activities) > 0 or (len(ls_activities) > 0): #only send signal to postprocess if we have either a cv_activity or a ls_activity
-				cv_activities = sorted(cv_activities, key=lambda d: d['timestamp']) 
-			#print(cv_activities)
-			data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
-			mess = json.dumps(data)
-			channel2.basic_publish(exchange='',
-							routing_key="cvPost",
-							body=mess)
-			logger.info("Sent cvPost signal\n")
-			door_state = 'initialize'
-			ls_activities = ""
-			act_flag = 0
+			elif door_state == "DoorLocked" and act_flag == 1:
+				if len(cv_activities) > 0 or (len(ls_activities) > 0): #only send signal to postprocess if we have either a cv_activity or a ls_activity
+					cv_activities = sorted(cv_activities, key=lambda d: d['timestamp']) 
+				#print(cv_activities)
+				data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
+				mess = json.dumps(data)
+				channel2.basic_publish(exchange='',
+								routing_key="cvPost",
+								body=mess)
+				logger.info("Sent cvPost signal\n")
+				door_state = 'initialize'
+				ls_activities = ""
+				act_flag = 0
+				with open('archive/{}/processed.txt'.format(transid), 'w') as f:
+					f.write('Y')
 
-	except KeyboardInterrupt as k:
-		connection.close()
-		logger.info("Exiting app\n")
-		sys.exit()
+		except KeyboardInterrupt as k:
+			connection.close()
+			logger.info("Exiting app\n")
+			sys.exit()
 
-	except Exception as e:
-		logger.info(traceback.format_exc())
-		raise
+		except Exception as e:
+			logger.info(traceback.format_exc())
+			raise
+
+if __name__ == '__main__':
+	main()

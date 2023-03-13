@@ -1,4 +1,5 @@
 user = "cvnx"
+pika_username = 'nano'
 log_path = "/home/{}/Desktop/".format(user)
 base_path = "/home/{}/Desktop/Icount_lite/".format(user)
 

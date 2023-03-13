@@ -154,7 +154,7 @@ def sms_text(tsv_url, post_time):
 #RabbitMQ Initialization
 def initializeChannel():
 	#Initialize queue for door signal
-	credentials = pika.PlainCredentials('guest','guest')
+	credentials = pika.PlainCredentials(cfg.pika_username,cfg.pika_username)
 	parameters = pika.ConnectionParameters('localhost', 5672, '/', credentials, blocked_connection_timeout=3000)
 	connection = pika.BlockingConnection(parameters)
 	channel = connection.channel()
@@ -438,6 +438,10 @@ check_list = [ False for i in range(maxCamerasToUse)]
 def main(transid):
 	print('begin main fxn')
 
+	#check if transid already processed
+	if os.path.exists('archive/{}/processed.txt'.format(transid)):
+		return
+
 	#initiate sess for tf1
 	config = tf.ConfigProto()
 	config.gpu_options.allow_growth=True
@@ -574,6 +578,8 @@ def main(transid):
 				print(fps)
 	out.release()
 	#************Upload detections***********
+	with open('archive/{}/ls_activities.pickle'.format(transid), 'wb') as f:
+    	ls_activities = pickle.load(f)
 	data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
 	mess = json.dumps(data)
 	channel2.basic_publish(exchange='',
@@ -597,6 +603,8 @@ def main(transid):
 		print("No cvPost signal sent - no CV or LS activities")
 	door_state = 'initialize'
 	ls_activities = ""
+	with open('archive/{}/processed.txt'.format(transid), 'w') as f:
+		f.write('Y')
 	del trt_yolo
 
 if __name__ == '__main__':

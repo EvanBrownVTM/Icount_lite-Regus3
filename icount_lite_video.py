@@ -156,7 +156,7 @@ def sms_text(tsv_url, post_time):
 #RabbitMQ Initialization
 def initializeChannel():
 	#Initialize queue for door signal
-	credentials = pika.PlainCredentials('guest','guest')
+	credentials = pika.PlainCredentials(cfg.pika_username,cfg.pika_username)
 	parameters = pika.ConnectionParameters('localhost', 5672, '/', credentials, blocked_connection_timeout=3000)
 	connection = pika.BlockingConnection(parameters)
 	channel = connection.channel()
