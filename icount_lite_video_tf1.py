@@ -30,6 +30,7 @@ from PIL import Image
 import requests
 import traceback
 import argparse
+import pickle
 
 from pypylon import pylon
 from collections import deque, Counter, defaultdict
@@ -86,7 +87,7 @@ def parse(serialized):
 	image = tf.io.decode_image(image)
 
 	return {'image':image, 'timestamp':timestamp} #, 'frame_cnt': frame_cnt}
-def readSingleTFRecord(n_cam, input_size, sess):
+def readSingleTFRecord(n_cam, input_size, transid, sess):
 	if not os.path.exists("{base_path}archive/{archive_name}/cam{n_cam}".format(base_path = cfg.base_path, archive_name=transid, n_cam=n_cam)):
 		os.mkdir("{base_path}archive/{archive_name}/cam{n_cam}".format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam))
 	
@@ -94,7 +95,7 @@ def readSingleTFRecord(n_cam, input_size, sess):
 	dataset = dataset.map(parse)
 	iterator = dataset.make_one_shot_iterator()
 	frame_cnt = 0
-	while True:#TEMPORARY and frame_cnt < 100
+	while True and frame_cnt < 10: #TEMPORARY and frame_cnt < 100
 		try:
 			next_element = iterator.get_next()
 			img, _ = sess.run([next_element['image'], next_element['timestamp']])
@@ -102,18 +103,18 @@ def readSingleTFRecord(n_cam, input_size, sess):
 			# cv2.imshow('cam{}'.format(n_cam), img)
 			# cv2.waitKey(1)
 			frame_cnt += 1
-			logger.info(frame_cnt)
+			#logger.info(frame_cnt)
 		except tf.errors.OutOfRangeError:
 			break
 	# cv2.destroyAllWindows()
 	return frame_cnt
 
 #parse tfrecords to jpg's
-def readTfRecords(archive_name, input_size, total_n_cams, logger, sess):
+def readTfRecords(transid, input_size, total_n_cams, logger, sess):
 	frame_cnts = []
-	logger.info('Beginning extraction: ', archive_name)
+	logger.info('Beginning extraction: ', transid)
 	for n_cam in range(total_n_cams):
-		frame_cnts.append(readSingleTFRecord(n_cam, input_size, sess))
+		frame_cnts.append(readSingleTFRecord(n_cam, input_size, transid, sess))
 
 	logger.info('Extracted frames from [{total_n_cams}] cameras: '.format(total_n_cams = total_n_cams) + " ".join([str(x) for x in frame_cnts]))
 		
@@ -230,7 +231,7 @@ def displayCart(det_frame, cart):
 			cv2.putText(det_frame, "{}:{}".format(cls_dict[prod_ind], cart[prod_ind]), (0, 50  + 30 * cnt), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
 			cnt += 1
 	
-def infer_engine(trt_yolo, cam0_solver, cam1_solver, cam2_solver, avt0, avt1, avt2, vis, timestr, frame0, frame1, frame2, frame_cnt0, frame_cnt1, frame_cnt2, cv_activities_cam0, cv_activities_cam1, cv_activities_cam2, cv_pick_cam0, cv_ret_cam0, cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2):
+def infer_engine(trt_yolo, cam0_solver, cam1_solver, cam2_solver, avt0, avt1, avt2, vis, timestr, frame0, frame1, frame2, frame_cnt0, frame_cnt1, frame_cnt2, cv_activities_cam0, cv_activities_cam1, cv_activities_cam2, cv_pick_cam0, cv_ret_cam0, cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2, transid):
 	frame0_copy = frame0.copy()
 	frame1_copy = frame1.copy()
 	frame2_copy = frame2.copy()
@@ -435,12 +436,13 @@ frame_cnt2 = 0
 cv_activities = []
 check_list = [ False for i in range(maxCamerasToUse)]
 
-def main(transid):
+def process_trans(transid):
 	logger.info('begin main fxn')
 
 	#check if transid already processed
 	if os.path.exists('archive/{}/processed.txt'.format(transid)):
 		return
+	logger.info('Running on: ' + transid)
 
 	#initiate sess for tf1
 	config = tf.ConfigProto()
@@ -497,8 +499,8 @@ def main(transid):
 	check_list = [None] * cfg.maxCamerasToUse
 	tic = time.time()
 	fps = 0.0
-	fourcc = cv2.VideoWriter_fourcc(*'XVID')
-	out = cv2.VideoWriter('videos/' + model_name + '_' + transid + '.avi', fourcc, 20.0, (416*3,416))
+	#fourcc = cv2.VideoWriter_fourcc(*'XVID')
+	#out = cv2.VideoWriter('videos/' + model_name + '_' + transid + '.avi', fourcc, 20.0, (416*3,416))
 
 	#************Run model on video************
 	logger.info('Running detections on stored video')
@@ -545,7 +547,7 @@ def main(transid):
 			timestr = time.strftime(timestamp_format)
 			check_list = np.logical_not(check_list)
 
-			det_frame0, det_frame1, det_frame2, cart = infer_engine(trt_yolo, cam0_solver, cam1_solver, cam2_solver, avt0, avt1, avt2, vis, timestr, frame0, frame1, frame2, frame_cnt0, frame_cnt1, frame_cnt2, cv_activities_cam0, cv_activities_cam1, cv_activities_cam2, cv_pick_cam0, cv_ret_cam0, cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2)
+			det_frame0, det_frame1, det_frame2, cart = infer_engine(trt_yolo, cam0_solver, cam1_solver, cam2_solver, avt0, avt1, avt2, vis, timestr, frame0, frame1, frame2, frame_cnt0, frame_cnt1, frame_cnt2, cv_activities_cam0, cv_activities_cam1, cv_activities_cam2, cv_pick_cam0, cv_ret_cam0, cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2, transid)
 			#Performing simple inference / cam2 only
 			cv_activities = cv_activities_cam2 + cv_activities_cam0 + cv_activities_cam1
 
@@ -564,7 +566,7 @@ def main(transid):
 				img_hstack = show_fps(img_hstack, fps)
 				displayCart(img_hstack, cart)
 				img_hstack = cv2.cvtColor(img_hstack, cv2.COLOR_BGR2RGB)
-				out.write(img_hstack)
+				#out.write(img_hstack)
 				cv2.imshow('Yo', img_hstack)
 				key = cv2.waitKey(1)
 				if key == 27:  # ESC key: quit program
@@ -576,10 +578,10 @@ def main(transid):
 			tic = toc
 			if frame_cnt0 % 20 == 0:
 				logger.info(fps)
-	out.release()
+	#out.release()
 	#************Upload detections***********
-	with open('archive/{}/ls_activities.pickle'.format(transid), 'wb') as f:
-    	ls_activities = pickle.load(f)
+	with open('archive/{}/ls_activities.pickle'.format(transid), 'rb') as f:
+		ls_activities = pickle.load(f)
 	data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
 	mess = json.dumps(data)
 	channel2.basic_publish(exchange='',
@@ -607,9 +609,9 @@ def main(transid):
 		f.write('Y')
 	del trt_yolo
 
-if __name__ == '__main__':
-	logger.info('Starting Icount_lite on saved videos')
-	logger.info('Running Icount_lite on saved videos')
+def main():
+	#logger.info('Starting Icount_lite on saved videos')
+	#logger.info('Running Icount_lite on saved videos')
 	#get user input transid (python3 icount_live_video.py --transid <transid>)
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--transid')
@@ -617,11 +619,15 @@ if __name__ == '__main__':
 	transid = args.transid
 	if transid is not None:
 		#run on user-supplied transid
-		logger.info('Running on: ' + transid)
-		main(transid)
+		#logger.info('Running on: ' + transid)
+		process_trans(transid)
 	else:
 		#run on all transactions in archive
 		transids = os.listdir('archive')
-		logger.info('Running on: ' + ' '.join(transids))
+		#logger.info('Running on: ' + ' '.join(transids))
 		for transid in transids:
-			main(transid)
+			process_trans(transid)
+
+
+if __name__ == '__main__':
+	main()
