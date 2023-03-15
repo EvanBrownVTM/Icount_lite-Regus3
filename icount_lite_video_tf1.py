@@ -121,8 +121,8 @@ def parse(serialized):
 
 	return {'image':image, 'timestamp':timestamp} #, 'frame_cnt': frame_cnt}
 def readSingleTFRecord(n_cam, input_size, transid, sess):
-	if not os.path.exists("{base_path}archive/{archive_name}/cam{n_cam}/images".format(base_path = cfg.base_path, archive_name=transid, n_cam=n_cam)):
-		os.makedirs("{base_path}archive/{archive_name}/cam{n_cam}/images".format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam))
+	if not os.path.exists("{base_path}archive/{archive_name}/cam{n_cam}/images_video".format(base_path = cfg.base_path, archive_name=transid, n_cam=n_cam)):
+		os.makedirs("{base_path}archive/{archive_name}/cam{n_cam}/images_video".format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam))
 	
 	dataset = tf.data.TFRecordDataset(["{base_path}archive/{archive_name}/img_{n_cam}.tfrecords".format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam)])
 	dataset = dataset.map(parse)
@@ -132,7 +132,7 @@ def readSingleTFRecord(n_cam, input_size, transid, sess):
 		try:
 			next_element = iterator.get_next()
 			img, _ = sess.run([next_element['image'], next_element['timestamp']])
-			cv2.imwrite('{base_path}archive/{archive_name}/cam{n_cam}/images/{frame_cnt}.jpg'.format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam, frame_cnt=frame_cnt), img)
+			cv2.imwrite('{base_path}archive/{archive_name}/cam{n_cam}/images_video/{frame_cnt}.jpg'.format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam, frame_cnt=frame_cnt), img)
 			# cv2.imshow('cam{}'.format(n_cam), img)
 			# cv2.waitKey(1)
 			frame_cnt += 1
@@ -489,7 +489,7 @@ def process_trans(transid):
 	readTfRecords(transid, input_size, cfg.maxCamerasToUse, logger, sess)
 
 	#load frames
-	camera_dirs = [os.path.join(cfg.base_path, 'archive', transid, x, 'images') for x in ['cam0', 'cam1', 'cam2']]
+	camera_dirs = [os.path.join(cfg.base_path, 'archive', transid, x, 'images_video') for x in ['cam0', 'cam1', 'cam2']]
 	frames0, frames1, frames2 = getFrames(camera_dirs)
 
 	#initialize solvers
