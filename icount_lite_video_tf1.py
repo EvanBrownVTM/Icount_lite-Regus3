@@ -69,6 +69,35 @@ tsv_url = 'http://192.168.1.140:8085/tsv/flashapi'
 timestamp_format = "%Y%m%d-%H_%M_%S"
 fps = 0.0
 conf_th = 0.7
+
+
+def get_earliest_ls_activity_timestamp(ls_activities):
+    earliest_activity_timestamp = None
+    user_activities = ls_activities['user_activity_instance']['user_activities']
+    for user_activity in user_activities:
+        timestamp = user_activity['activity_time']
+        if earliest_activity_timestamp is None or datetime.strptime(earliest_activity_timestamp, "%Y-%m-%d:%H:%M:%S") > datetime.strptime(timestamp, "%Y-%m-%d:%H:%M:%S"):
+            earliest_activity_timestamp = timestamp
+    return earliest_activity_timestamp
+
+def get_earliest_cv_activity_timestamp(cv_activities):
+    earliest_activity_timestamp = None
+    for activity in cv_activities:
+        timestamp = activity['timestamp']
+        if earliest_activity_timestamp is None or datetime.strptime(earliest_activity_timestamp, "%Y-%m-%d:%H:%M:%S") > datetime.strptime(timestamp, "%Y-%m-%d:%H:%M:%S"):
+            earliest_activity_timestamp = timestamp
+    return earliest_activity_timestamp
+
+def adjust_cv_activities_timestamps(cv_activities, ls_activities):
+    earliest_cv_activity_timestamp = get_earliest_cv_activity_timestamp(cv_activities)
+    earliest_ls_activity_timestamp = get_earliest_ls_activity_timestamp(ls_activities)
+    cv_ls_time_difference = datetime.strptime(earliest_ls_activity_timestamp, "%Y-%m-%d:%H:%M:%S") - datetime.strptime(earliest_cv_activity_timestamp, "%Y-%m-%d:%H:%M:%S")
+
+    for activity in cv_activities:
+        activity_time = datetime.strptime(activity['timestamp'], "%Y-%m-%d:%H:%M:%S")
+        activity_time -= cv_ls_time_difference
+        activity['timestamp'] = datetime.strftime(activity_time, "%Y-%m-%d:%H:%M:%S")
+
 def draw_contours(img, contours, frame_size):
 	for zone in contours.files:
 		absolute_zone = np.int32(contours[zone] * frame_size) #denormalize the contour
@@ -598,6 +627,7 @@ def process_trans(transid):
 	if (len(cv_activities) > 0) or (len(ls_activities) > 0): #only send signal to postprocess if we have either a cv_activity or a ls_activity
 		if len(cv_activities) > 0:
 			cv_activities = sorted(cv_activities, key=lambda d: d['timestamp']) 
+			adjust_cv_activities_timestamps(cv_activities, ls_activities)
 		data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
 		mess = json.dumps(data)
 		channel.basic_publish(exchange='',
