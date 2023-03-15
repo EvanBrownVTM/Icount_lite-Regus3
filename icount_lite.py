@@ -417,6 +417,8 @@ def img2jpeg(image):
 	return byte_im
 
 def main():
+	global init_process, fps
+
 	if pika_flag:
 		channel, channel2, connection = initializeChannel()
 
@@ -646,19 +648,20 @@ def main():
 			elif door_state == "DoorLocked" and act_flag == 1:
 				if len(cv_activities) > 0 or (len(ls_activities) > 0): #only send signal to postprocess if we have either a cv_activity or a ls_activity
 					cv_activities = sorted(cv_activities, key=lambda d: d['timestamp']) 
-				#print(cv_activities)
-				data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
-				mess = json.dumps(data)
-				channel2.basic_publish(exchange='',
+				#upload only if in icount_mode, otherwise icount_lite_video script will do this later
+				if cfg.icount_mode:
+					data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
+					mess = json.dumps(data)
+					channel2.basic_publish(exchange='',
 								routing_key="cvPost",
 								body=mess)
-				logger.info("Sent cvPost signal\n")
+					logger.info("Sent cvPost signal\n")
+					with open('archive/{}/processed.txt'.format(transid), 'w') as f:
+						f.write('Y')
 				door_state = 'initialize'
 				ls_activities = ""
 				act_flag = 0
-				with open('archive/{}/processed.txt'.format(transid), 'w') as f:
-					f.write('Y')
-
+				
 		except KeyboardInterrupt as k:
 			connection.close()
 			logger.info("Exiting app\n")

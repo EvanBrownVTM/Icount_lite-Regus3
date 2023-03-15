@@ -95,7 +95,7 @@ def readSingleTFRecord(n_cam, input_size, transid, sess):
 	dataset = dataset.map(parse)
 	iterator = dataset.make_one_shot_iterator()
 	frame_cnt = 0
-	while True and frame_cnt < 10: #TEMPORARY and frame_cnt < 100
+	while True: #TEMPORARY and frame_cnt < 100
 		try:
 			next_element = iterator.get_next()
 			img, _ = sess.run([next_element['image'], next_element['timestamp']])
@@ -159,16 +159,13 @@ def initializeChannel():
 	parameters = pika.ConnectionParameters('localhost', 5672, '/', credentials, blocked_connection_timeout=3000)
 	connection = pika.BlockingConnection(parameters)
 	channel = connection.channel()
-	channel.queue_declare(queue='cvIcount',durable = True)
-	channel2 = connection.channel()
-	channel2.queue_declare(queue='cvPost',durable = True)
+	channel.queue_declare(queue='cvPost',durable = True)
 
 	#Clear queue for pre-existing messages
-	channel.queue_purge(queue='cvIcount')
-	channel2.queue_purge(queue='cvPost')
+	channel.queue_purge(queue='cvPost')
 
 	logger.info("Rabbitmq connections initialized ")
-	return channel, channel2, connection
+	return channel, connection
 
 
 def trt_detect(frame, trt_yolo, conf_th, vis):
@@ -423,7 +420,7 @@ def img2jpeg(image):
 	byte_im = im_buf_arr.tobytes()
 	return byte_im
 
-_, channel2, connection = initializeChannel()
+channel, connection = initializeChannel()
 
 #intialize variables
 tic = time.time()
@@ -437,11 +434,15 @@ cv_activities = []
 check_list = [ False for i in range(maxCamerasToUse)]
 
 def process_trans(transid):
-	logger.info('begin main fxn')
+	#logger.info('begin main fxn')
 
 	#check if transid already processed
 	if os.path.exists('archive/{}/processed.txt'.format(transid)):
 		return
+
+	#ensure ls_activities stored under transaction archvie
+	assert(os.path.exists('archive/{}/ls_activities.pickle'.format(transid)))
+
 	logger.info('Running on: ' + transid)
 
 	#initiate sess for tf1
@@ -584,7 +585,7 @@ def process_trans(transid):
 		ls_activities = pickle.load(f)
 	data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
 	mess = json.dumps(data)
-	channel2.basic_publish(exchange='',
+	channel.basic_publish(exchange='',
 				routing_key="cvPost",
 				body=mess)
 
@@ -597,7 +598,7 @@ def process_trans(transid):
 			cv_activities = sorted(cv_activities, key=lambda d: d['timestamp']) 
 		data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
 		mess = json.dumps(data)
-		channel2.basic_publish(exchange='',
+		channel.basic_publish(exchange='',
 						routing_key="cvPost",
 						body=mess)
 		logger.info("Sent cvPost signal (Stored video mode)\n")
@@ -630,4 +631,8 @@ def main():
 
 
 if __name__ == '__main__':
-	main()
+	while True:
+		try:
+			main()
+		except:
+			pass

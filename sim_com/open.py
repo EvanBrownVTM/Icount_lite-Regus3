@@ -7,6 +7,8 @@ parameters = pika.ConnectionParameters('localhost',5672,'/',credentials)
 connection = pika.BlockingConnection(parameters)
 channel = connection.channel()
 
+print('created channel')
+
 channel.queue_declare(queue="cvRequest",durable = True)
 
 data = '{\n "cmd": "DoorOpened", \n "parm1":"Testtrans:True"\n}'
@@ -19,3 +21,4 @@ channel.basic_publish(exchange='',
 
 print(" [x] Sent data %", data)
 connection.close()
+print('closed connection')
