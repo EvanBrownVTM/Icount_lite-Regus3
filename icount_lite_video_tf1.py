@@ -45,14 +45,15 @@ from datetime import datetime
 from scipy.optimize import linear_sum_assignment
 
 
-logging.getLogger("pika").setLevel(logging.WARNING)
-logging.getLogger('requests').setLevel(logging.WARNING)
-logging.getLogger("tensorflow").setLevel(logging.ERROR)
-logging.basicConfig(filename='{}logs/Icount.log'.format(cfg.log_path), level=logging.DEBUG, format="%(asctime)-8s %(levelname)-8s %(message)s")
-logging.disable(logging.DEBUG)
-logger=logging.getLogger()
-logger.info("")
-sys.stderr.write=logger.error
+# logging.getLogger("pika").setLevel(logging.WARNING)
+# logging.getLogger('requests').setLevel(logging.WARNING)
+# logging.getLogger("tensorflow").setLevel(logging.ERROR)
+# logging.basicConfig(filename='{}logs/Icount.log'.format(cfg.log_path), level=logging.DEBUG, format="%(asctime)-8s %(levelname)-8s %(message)s")
+# logging.disable(logging.DEBUG)
+# logger=logging.getLogger()
+# print("")
+# sys.stderr.write=logger.error
+logger = None
 
 #Setting
 maxCamerasToUse = cfg.maxCamerasToUse
@@ -75,6 +76,9 @@ def get_earliest_ls_activity_timestamp(ls_activities):
     earliest_activity_timestamp = None
     user_activities = ls_activities['user_activity_instance']['user_activities']
     for user_activity in user_activities:
+	#first activity must be a pickup
+	if user_activity['user_activity_type'] != 'USER_PICKUP':
+		continue
         timestamp = user_activity['activity_time']
         if earliest_activity_timestamp is None or datetime.strptime(earliest_activity_timestamp, "%Y-%m-%d:%H:%M:%S") > datetime.strptime(timestamp, "%Y-%m-%d:%H:%M:%S"):
             earliest_activity_timestamp = timestamp
@@ -117,22 +121,22 @@ def parse(serialized):
 
 	return {'image':image, 'timestamp':timestamp} #, 'frame_cnt': frame_cnt}
 def readSingleTFRecord(n_cam, input_size, transid, sess):
-	if not os.path.exists("{base_path}archive/{archive_name}/cam{n_cam}".format(base_path = cfg.base_path, archive_name=transid, n_cam=n_cam)):
-		os.mkdir("{base_path}archive/{archive_name}/cam{n_cam}".format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam))
+	if not os.path.exists("{base_path}archive/{archive_name}/cam{n_cam}/images".format(base_path = cfg.base_path, archive_name=transid, n_cam=n_cam)):
+		os.makedirs("{base_path}archive/{archive_name}/cam{n_cam}/images".format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam))
 	
 	dataset = tf.data.TFRecordDataset(["{base_path}archive/{archive_name}/img_{n_cam}.tfrecords".format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam)])
 	dataset = dataset.map(parse)
 	iterator = dataset.make_one_shot_iterator()
 	frame_cnt = 0
-	while True: #TEMPORARY and frame_cnt < 100
+	while True and frame_cnt<10: #TEMPORARY and frame_cnt < 100
 		try:
 			next_element = iterator.get_next()
 			img, _ = sess.run([next_element['image'], next_element['timestamp']])
-			cv2.imwrite('{base_path}archive/{archive_name}/cam{n_cam}/{frame_cnt}.jpg'.format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam, frame_cnt=frame_cnt), img)
+			cv2.imwrite('{base_path}archive/{archive_name}/cam{n_cam}/images/{frame_cnt}.jpg'.format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam, frame_cnt=frame_cnt), img)
 			# cv2.imshow('cam{}'.format(n_cam), img)
 			# cv2.waitKey(1)
 			frame_cnt += 1
-			#logger.info(frame_cnt)
+			#print(frame_cnt)
 		except tf.errors.OutOfRangeError:
 			break
 	# cv2.destroyAllWindows()
@@ -141,12 +145,12 @@ def readSingleTFRecord(n_cam, input_size, transid, sess):
 #parse tfrecords to jpg's
 def readTfRecords(transid, input_size, total_n_cams, logger, sess):
 	frame_cnts = []
-	logger.info(transid)
-	logger.info('Beginning extraction: ' + transid)
+	print(transid)
+	print('Beginning extraction: ' + transid)
 	for n_cam in range(total_n_cams):
 		frame_cnts.append(readSingleTFRecord(n_cam, input_size, transid, sess))
 
-	logger.info('Extracted frames from [{total_n_cams}] cameras: '.format(total_n_cams = total_n_cams) + " ".join([str(x) for x in frame_cnts]))
+	print('Extracted frames from [{total_n_cams}] cameras: '.format(total_n_cams = total_n_cams) + " ".join([str(x) for x in frame_cnts]))
 		
 def sort_fxn(x):
     x = x.replace('.jpg', '')
@@ -164,23 +168,23 @@ def getFrames(camera_dirs):
 	return (*frames_list,)
 
 def init():
-	logger.info('Loading TensoRT model...')
+	print('Loading TensoRT model...')
 	# build the class (index/name) dictionary from labelmap file
 	trt_yolo = TrtYOLO(model_name, (416, 416), 4, False, path_folder = 'yolo/')
 
-	#logger.info('\tRunning warmup detection')
+	#print('\tRunning warmup detection')
 	dummy_img = np.zeros((416, 416, 3), dtype=np.uint8)
 	_, _, _ = trt_yolo.detect(dummy_img, 0.6)
-	logger.info('Model loaded and ready for detection')
+	print('Model loaded and ready for detection')
 
 	return trt_yolo
 
 def sms_text(tsv_url, post_time):
 	sms_response = requests.post(url= tsv_url, data='["CreateSMSText", "CV FRAUD ALERT: ({}): Transaction time threshold exceeded / {}sec {}"]'.format(cfg.machine_location, post_time, datetime.now().strftime("%c"))).json()
 	if sms_response['resultCode'] == "SUCCESS":
-		logger.info("   CV sms alert succesfully sent")
+		print("   CV sms alert succesfully sent")
 	else:
-		logger.info("   CV sms alert: Failed")
+		print("   CV sms alert: Failed")
 
 #RabbitMQ Initialization
 def initializeChannel():
@@ -194,7 +198,7 @@ def initializeChannel():
 	#Clear queue for pre-existing messages
 	channel.queue_purge(queue='cvPost')
 
-	logger.info("Rabbitmq connections initialized ")
+	print("Rabbitmq connections initialized ")
 	return channel, connection
 
 
@@ -414,12 +418,12 @@ def fuse_cam12_activities(cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2, 
 	if len(act_picks12) > 0:
 		for act_pick in act_picks12:
 			cv_activities_fused.append({'class_id': act_pick[0], 'action': act_pick[1], 'timestamp': act_pick[2]})
-			logger.info("   fused action: {} {} @ {}".format(act_pick[1], act_pick[0], act_pick[2]))
+			print("   fused action: {} {} @ {}".format(act_pick[1], act_pick[0], act_pick[2]))
 
 	if len(act_returns12) > 0:
 		for act_return in act_returns12:
 			cv_activities_fused.append({'class_id': act_return[0], 'action': act_return[1], 'timestamp': act_return[2]})
-			logger.info("   fused action: {} {} @ {}".format(act_return[1], act_return[0], act_return[2]))
+			print("   fused action: {} {} @ {}".format(act_return[1], act_return[0], act_return[2]))
 
 	return cv_pick_cam1, cv_ret_cam1, cv_pick_cam2, cv_ret_cam2
 
@@ -430,11 +434,11 @@ def fuse_all_cams_activities(matched_pick_cam01, matched_pick_cam02, matched_ret
 	if len(matched_act_picks012) > 0:
 		for act_pick in matched_act_picks012:
 			cv_activities_fused.append({'class_id': act_pick[0], 'action': act_pick[1], 'timestamp': act_pick[2]})
-			logger.info("   fused action: {} {} @ {}".format(act_pick[1], act_pick[0], act_pick[2]))
+			print("   fused action: {} {} @ {}".format(act_pick[1], act_pick[0], act_pick[2]))
 	if len(matched_act_returns012) > 0:
 		for act_return in matched_act_returns012:
 			cv_activities_fused.append({'class_id': act_return[0], 'action': act_return[1], 'timestamp': act_return[2]})
-			logger.info("   fused action: {} {} @ {}".format(act_return[1], act_return[0], act_return[2]))
+			print("   fused action: {} {} @ {}".format(act_return[1], act_return[0], act_return[2]))
 
 	return matched_pick_cam01, matched_pick_cam02, matched_return_cam01, matched_return_cam02
 
@@ -464,7 +468,7 @@ cv_activities = []
 check_list = [ False for i in range(maxCamerasToUse)]
 
 def process_trans(transid):
-	#logger.info('begin main fxn')
+	#print('begin main fxn')
 
 	#check if transid already processed
 	if os.path.exists('archive/{}/processed.txt'.format(transid)):
@@ -473,7 +477,7 @@ def process_trans(transid):
 	#ensure ls_activities stored under transaction archvie
 	assert(os.path.exists('archive/{}/ls_activities.pickle'.format(transid)))
 
-	logger.info('Running on: ' + transid)
+	print('Running on: ' + transid)
 
 	#initiate sess for tf1
 	config = tf.ConfigProto()
@@ -481,11 +485,11 @@ def process_trans(transid):
 	sess = tf.Session(config=config)	
 
 	#extract tfrecords
-	logger.info(transid)
+	print(transid)
 	readTfRecords(transid, input_size, cfg.maxCamerasToUse, logger, sess)
 
 	#load frames
-	camera_dirs = [os.path.join(cfg.base_path, 'archive', transid, x) for x in ['cam0', 'cam1', 'cam2']]
+	camera_dirs = [os.path.join(cfg.base_path, 'archive', transid, x, 'images') for x in ['cam0', 'cam1', 'cam2']]
 	frames0, frames1, frames2 = getFrames(camera_dirs)
 
 	#initialize solvers
@@ -535,7 +539,7 @@ def process_trans(transid):
 	#out = cv2.VideoWriter('videos/' + model_name + '_' + transid + '.avi', fourcc, 20.0, (416*3,416))
 
 	#************Run model on video************
-	logger.info('Running detections on stored video')
+	print('Running detections on stored video')
 	while True:
 		try:
 			if cameraContextValue == 0:
@@ -549,7 +553,7 @@ def process_trans(transid):
 				frame_cnt2 += 1
 		except StopIteration:
 			door_state = 'DoorLocked'
-			logger.info('Reached end of video')	
+			print('Reached end of video')	
 			break
 
 		if cameraContextValue == 0:
@@ -609,7 +613,7 @@ def process_trans(transid):
 			fps = curr_fps if fps == 0.0 else (fps*0.95 + curr_fps*0.05)
 			tic = toc
 			if frame_cnt0 % 20 == 0:
-				logger.info(fps)
+				print(fps)
 	#out.release()
 	#************Upload detections***********
 	with open('archive/{}/ls_activities.pickle'.format(transid), 'rb') as f:
@@ -620,10 +624,10 @@ def process_trans(transid):
 				routing_key="cvPost",
 				body=mess)
 
-	logger.info('CV_activities:')
-	logger.info(cv_activities)
-	logger.info('LS_activities:')
-	logger.info(ls_activities)
+	print('CV_activities:')
+	print(cv_activities)
+	print('LS_activities:')
+	print(ls_activities)
 	if (len(cv_activities) > 0) or (len(ls_activities) > 0): #only send signal to postprocess if we have either a cv_activity or a ls_activity
 		if len(cv_activities) > 0:
 			cv_activities = sorted(cv_activities, key=lambda d: d['timestamp']) 
@@ -633,9 +637,9 @@ def process_trans(transid):
 		channel.basic_publish(exchange='',
 						routing_key="cvPost",
 						body=mess)
-		logger.info("Sent cvPost signal (Stored video mode)\n")
+		print("Sent cvPost signal (Stored video mode)\n")
 	else:
-		logger.info("No cvPost signal sent - no CV or LS activities")
+		print("No cvPost signal sent - no CV or LS activities")
 	door_state = 'initialize'
 	ls_activities = ""
 	with open('archive/{}/processed.txt'.format(transid), 'w') as f:
@@ -643,8 +647,8 @@ def process_trans(transid):
 	del trt_yolo
 
 def main():
-	#logger.info('Starting Icount_lite on saved videos')
-	#logger.info('Running Icount_lite on saved videos')
+	#print('Starting Icount_lite on saved videos')
+	#print('Running Icount_lite on saved videos')
 	#get user input transid (python3 icount_live_video.py --transid <transid>)
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--transid')
@@ -652,12 +656,12 @@ def main():
 	transid = args.transid
 	if transid is not None:
 		#run on user-supplied transid
-		#logger.info('Running on: ' + transid)
+		#print('Running on: ' + transid)
 		process_trans(transid)
 	else:
 		#run on all transactions in archive
 		transids = os.listdir('archive')
-		#logger.info('Running on: ' + ' '.join(transids))
+		#print('Running on: ' + ' '.join(transids))
 		for transid in transids:
 			process_trans(transid)
 
@@ -667,4 +671,4 @@ if __name__ == '__main__':
 		try:
 			main()
 		except Exception as e:
-			logger.info(e)
+			print(e)

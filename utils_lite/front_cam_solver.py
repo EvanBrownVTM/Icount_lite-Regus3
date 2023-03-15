@@ -244,7 +244,7 @@ class FrontCam:
 			product._last_hand_idxs = []
 			product._last_hand_before_hist = []
 		if action != 'NO ACTION' and not idle:
-			logger.info('      {} - {} - {} {}'.format(self._cam_id, product._active_zone, action, int(class_id)))
+			print('      {} - {} - {} {}'.format(self._cam_id, product._active_zone, action, int(class_id)))
 			cv_activities.append({"class_id":int(class_id), "action":action, "timestamp": time.strftime(timestamp_format), "active_zone": product._active_zone})
 			if action == 'PICK':
 				self.cart[int(class_id)] += 1
