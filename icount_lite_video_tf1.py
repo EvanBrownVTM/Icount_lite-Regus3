@@ -73,34 +73,34 @@ conf_th = 0.7
 
 
 def get_earliest_ls_activity_timestamp(ls_activities):
-    earliest_activity_timestamp = None
-    user_activities = ls_activities['user_activity_instance']['user_activities']
-    for user_activity in user_activities:
-	#first activity must be a pickup
-	if user_activity['user_activity_type'] != 'USER_PICKUP':
-		continue
-        timestamp = user_activity['activity_time']
-        if earliest_activity_timestamp is None or datetime.strptime(earliest_activity_timestamp, "%Y-%m-%d:%H:%M:%S") > datetime.strptime(timestamp, "%Y-%m-%d:%H:%M:%S"):
-            earliest_activity_timestamp = timestamp
-    return earliest_activity_timestamp
+	earliest_activity_timestamp = None
+	user_activities = ls_activities['user_activity_instance']['user_activities']
+	for user_activity in user_activities:
+		#first activity must be a pickup
+		if user_activity['user_activity_type'] != 'USER_PICKUP':
+			continue
+		timestamp = user_activity['activity_time']
+		if earliest_activity_timestamp is None or datetime.strptime(earliest_activity_timestamp, "%Y-%m-%d:%H:%M:%S") > datetime.strptime(timestamp, "%Y-%m-%d:%H:%M:%S"):
+			earliest_activity_timestamp = timestamp
+	return earliest_activity_timestamp
 
 def get_earliest_cv_activity_timestamp(cv_activities):
-    earliest_activity_timestamp = None
-    for activity in cv_activities:
-        timestamp = activity['timestamp']
-        if earliest_activity_timestamp is None or datetime.strptime(earliest_activity_timestamp, "%Y-%m-%d:%H:%M:%S") > datetime.strptime(timestamp, "%Y-%m-%d:%H:%M:%S"):
-            earliest_activity_timestamp = timestamp
-    return earliest_activity_timestamp
+	earliest_activity_timestamp = None
+	for activity in cv_activities:
+		timestamp = activity['timestamp']
+		if earliest_activity_timestamp is None or datetime.strptime(earliest_activity_timestamp, "%Y-%m-%d:%H:%M:%S") > datetime.strptime(timestamp, "%Y-%m-%d:%H:%M:%S"):
+			earliest_activity_timestamp = timestamp
+	return earliest_activity_timestamp
 
 def adjust_cv_activities_timestamps(cv_activities, ls_activities):
-    earliest_cv_activity_timestamp = get_earliest_cv_activity_timestamp(cv_activities)
-    earliest_ls_activity_timestamp = get_earliest_ls_activity_timestamp(ls_activities)
-    cv_ls_time_difference = datetime.strptime(earliest_ls_activity_timestamp, "%Y-%m-%d:%H:%M:%S") - datetime.strptime(earliest_cv_activity_timestamp, "%Y-%m-%d:%H:%M:%S")
+	earliest_cv_activity_timestamp = get_earliest_cv_activity_timestamp(cv_activities)
+	earliest_ls_activity_timestamp = get_earliest_ls_activity_timestamp(ls_activities)
+	cv_ls_time_difference = datetime.strptime(earliest_ls_activity_timestamp, "%Y-%m-%d:%H:%M:%S") - datetime.strptime(earliest_cv_activity_timestamp, "%Y-%m-%d:%H:%M:%S")
 
-    for activity in cv_activities:
-        activity_time = datetime.strptime(activity['timestamp'], "%Y-%m-%d:%H:%M:%S")
-        activity_time -= cv_ls_time_difference
-        activity['timestamp'] = datetime.strftime(activity_time, "%Y-%m-%d:%H:%M:%S")
+	for activity in cv_activities:
+		activity_time = datetime.strptime(activity['timestamp'], "%Y-%m-%d:%H:%M:%S")
+		activity_time -= cv_ls_time_difference
+		activity['timestamp'] = datetime.strftime(activity_time, "%Y-%m-%d:%H:%M:%S")
 
 def draw_contours(img, contours, frame_size):
 	for zone in contours.files:
@@ -153,8 +153,8 @@ def readTfRecords(transid, input_size, total_n_cams, logger, sess):
 	print('Extracted frames from [{total_n_cams}] cameras: '.format(total_n_cams = total_n_cams) + " ".join([str(x) for x in frame_cnts]))
 		
 def sort_fxn(x):
-    x = x.replace('.jpg', '')
-    return int(x)
+	x = x.replace('.jpg', '')
+	return int(x)
 
 def getFrames(camera_dirs):
 	frames_list = []
@@ -312,42 +312,42 @@ def infer_engine(trt_yolo, cam0_solver, cam1_solver, cam2_solver, avt0, avt1, av
 
 
 def distance(item1, item2):
-    if item1[0] != item2[0]:
-        return 10
-    time1 = datetime.strptime(item1[2], "%Y-%m-%d:%H:%M:%S")
-    time2 = datetime.strptime(item2[2], "%Y-%m-%d:%H:%M:%S")
-    return abs((time1 - time2).total_seconds())
+	if item1[0] != item2[0]:
+		return 10
+	time1 = datetime.strptime(item1[2], "%Y-%m-%d:%H:%M:%S")
+	time2 = datetime.strptime(item2[2], "%Y-%m-%d:%H:%M:%S")
+	return abs((time1 - time2).total_seconds())
 def match(set1, set2, thresh=None):
-    """
-        e.g.
-            set1: [{"class_id":1, "action":"PICK", "timestamp": '2022-07-25:11:15:50'}, {"class_id":1, "action":"RETURN", "timestamp": '2022-07-25:11:15:57'}]
-            set1: [{"class_id":1, "action":"RETURN", "timestamp": '2022-07-25:11:16:00'}]
-    """
-    not_matched1 = []
-    not_matched2 = []
+	"""
+		e.g.
+			set1: [{"class_id":1, "action":"PICK", "timestamp": '2022-07-25:11:15:50'}, {"class_id":1, "action":"RETURN", "timestamp": '2022-07-25:11:15:57'}]
+			set1: [{"class_id":1, "action":"RETURN", "timestamp": '2022-07-25:11:16:00'}]
+	"""
+	not_matched1 = []
+	not_matched2 = []
 
-    n = len(set1)
-    m = len(set2)
+	n = len(set1)
+	m = len(set2)
 
-    cost_matrix = np.zeros((n, m))
+	cost_matrix = np.zeros((n, m))
 
-    for i, item1 in enumerate(set1):
-        for j, item2 in enumerate(set2):
-            score = distance(item1, item2)
-            cost_matrix[i, j] = score
+	for i, item1 in enumerate(set1):
+		for j, item2 in enumerate(set2):
+			score = distance(item1, item2)
+			cost_matrix[i, j] = score
 
-    rows, cols = linear_sum_assignment(cost_matrix)
-    not_matched1 += set(rows).symmetric_difference(range(n))
-    not_matched2 += set(cols).symmetric_difference(range(m))
-    matches = []
-    for row, col in zip(rows, cols):
-        if (thresh and cost_matrix[row, col].sum() < thresh) or not thresh:
-            matches.append( (row, col) )
-        else:
-            not_matched1.append(row)
-            not_matched2.append(col)
+	rows, cols = linear_sum_assignment(cost_matrix)
+	not_matched1 += set(rows).symmetric_difference(range(n))
+	not_matched2 += set(cols).symmetric_difference(range(m))
+	matches = []
+	for row, col in zip(rows, cols):
+		if (thresh and cost_matrix[row, col].sum() < thresh) or not thresh:
+			matches.append( (row, col) )
+		else:
+			not_matched1.append(row)
+			not_matched2.append(col)
 
-    return matches, not_matched1, not_matched2
+	return matches, not_matched1, not_matched2
 
 def process_actions(cv_act_cam0, cv_act_cam2, timeout = 3, m_flag = False):
 	m0_act, m1_act, m2_act = match(cv_act_cam0, cv_act_cam2, timeout)
