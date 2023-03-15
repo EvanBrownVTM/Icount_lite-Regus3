@@ -16,7 +16,7 @@ activate_arch = True
 sms_alert = False
 thresh_cv_time = 70
 machine_location = 'Regus Liberty Station'
-cls_dict = {0: 'vickies', 1: 'Coca Cola 20z', 2: 'Gatorade 12oz', 3: 'sun_chips', 4: 'doritos', 5: 'lays', 6: 'monster', 7: 'gold_peak', 8: 'Diet Coke (SF)', 9: 'sprite', 10: 'Dasani Water 16 oz'} #10 prod
+cls_dict = {0: 'Coca Cola 20z', 1: 'Gatorade 12oz', 2: 'Monster Regular', 3: 'Diet Coke (SF)', 4: 'Dasani Water 16 oz'} #{0: 'vickies', 1: 'Coca Cola 20z', 2: 'Gatorade 12oz', 3: 'sun_chips', 4: 'doritos', 5: 'lays', 6: 'monster', 7: 'gold_peak', 8: 'Diet Coke (SF)', 9: 'sprite', 10: 'Dasani Water 16 oz'} #10 prod
 
 
 pfs_list_daylight = ['pfs/regus_cam0.pfs', 'pfs/regus_cam1.pfs', 'pfs/regus_cam2.pfs']

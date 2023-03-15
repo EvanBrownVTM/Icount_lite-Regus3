@@ -112,7 +112,8 @@ def readSingleTFRecord(n_cam, input_size, transid, sess):
 #parse tfrecords to jpg's
 def readTfRecords(transid, input_size, total_n_cams, logger, sess):
 	frame_cnts = []
-	logger.info('Beginning extraction: ', transid)
+	logger.info(transid)
+	logger.info('Beginning extraction: ' + transid)
 	for n_cam in range(total_n_cams):
 		frame_cnts.append(readSingleTFRecord(n_cam, input_size, transid, sess))
 
@@ -451,6 +452,7 @@ def process_trans(transid):
 	sess = tf.Session(config=config)	
 
 	#extract tfrecords
+	logger.info(transid)
 	readTfRecords(transid, input_size, cfg.maxCamerasToUse, logger, sess)
 
 	#load frames
@@ -634,5 +636,5 @@ if __name__ == '__main__':
 	while True:
 		try:
 			main()
-		except:
-			pass
+		except Exception as e:
+			logger.info(e)
