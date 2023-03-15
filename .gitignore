@@ -1,0 +1,12 @@
+archive/
+post_archive/
+__pycache__/
+*.trt
+*.weights
+*.jpg
+*.jpeg
+*.png
+*.tfrecord
+*.onnx
+*.pyc
+*configSrc.py
