@@ -1,7 +1,7 @@
-user = "cvnx"
-pika_username = 'nano'
+user = "evan"
+pika_username = 'guest'
 log_path = "/home/{}/Desktop/".format(user)
-base_path = "/home/{}/Desktop/Icount_lite/".format(user)
+base_path = "/home/{}/Desktop/Icount_lite-Regus3/".format(user)
 
 ##### NETWORK #####
 IP_ADDRESS_LOCAL="192.168.1.155"
