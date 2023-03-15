@@ -454,8 +454,6 @@ def img2jpeg(image):
 	byte_im = im_buf_arr.tobytes()
 	return byte_im
 
-channel, connection = initializeChannel()
-
 #intialize variables
 tic = time.time()
 
@@ -618,12 +616,6 @@ def process_trans(transid):
 	#************Upload detections***********
 	with open('archive/{}/ls_activities.pickle'.format(transid), 'rb') as f:
 		ls_activities = pickle.load(f)
-	data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
-	mess = json.dumps(data)
-	channel.basic_publish(exchange='',
-				routing_key="cvPost",
-				body=mess)
-
 	print('CV_activities:')
 	print(cv_activities)
 	print('LS_activities:')
@@ -634,6 +626,7 @@ def process_trans(transid):
 			adjust_cv_activities_timestamps(cv_activities, ls_activities)
 		data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
 		mess = json.dumps(data)
+		channel, connection = initializeChannel()
 		channel.basic_publish(exchange='',
 						routing_key="cvPost",
 						body=mess)
