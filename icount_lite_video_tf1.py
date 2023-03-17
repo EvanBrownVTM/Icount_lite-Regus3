@@ -95,7 +95,7 @@ def get_earliest_cv_activity_timestamp(cv_activities):
 def adjust_cv_activities_timestamps(cv_activities, ls_activities):
 	earliest_cv_activity_timestamp = get_earliest_cv_activity_timestamp(cv_activities)
 	earliest_ls_activity_timestamp = get_earliest_ls_activity_timestamp(ls_activities)
-	cv_ls_time_difference = datetime.strptime(earliest_ls_activity_timestamp, "%Y-%m-%d:%H:%M:%S") - datetime.strptime(earliest_cv_activity_timestamp, "%Y-%m-%d:%H:%M:%S")
+	cv_ls_time_difference = datetime.strptime(earliest_cv_activity_timestamp, "%Y-%m-%d:%H:%M:%S") - datetime.strptime(earliest_ls_activity_timestamp, "%Y-%m-%d:%H:%M:%S")
 
 	for activity in cv_activities:
 		activity_time = datetime.strptime(activity['timestamp'], "%Y-%m-%d:%H:%M:%S")
@@ -128,9 +128,9 @@ def readSingleTFRecord(n_cam, input_size, transid, sess):
 	dataset = dataset.map(parse)
 	iterator = dataset.make_one_shot_iterator()
 	frame_cnt = 0
-	while True and frame_cnt<10: #TEMPORARY and frame_cnt < 100
+	next_element = iterator.get_next()
+	while True: #TEMPORARY and frame_cnt < 100
 		try:
-			next_element = iterator.get_next()
 			img, _ = sess.run([next_element['image'], next_element['timestamp']])
 			cv2.imwrite('{base_path}archive/{archive_name}/cam{n_cam}/images_video/{frame_cnt}.jpg'.format(base_path=cfg.base_path, archive_name=transid, n_cam=n_cam, frame_cnt=frame_cnt), img)
 			# cv2.imshow('cam{}'.format(n_cam), img)
@@ -193,10 +193,10 @@ def initializeChannel():
 	parameters = pika.ConnectionParameters('localhost', 5672, '/', credentials, blocked_connection_timeout=3000)
 	connection = pika.BlockingConnection(parameters)
 	channel = connection.channel()
-	channel.queue_declare(queue='cvPost',durable = True)
+	channel.queue_declare(queue='cvPost2',durable = True)
 
 	#Clear queue for pre-existing messages
-	channel.queue_purge(queue='cvPost')
+	channel.queue_purge(queue='cvPost2')
 
 	print("Rabbitmq connections initialized ")
 	return channel, connection
@@ -614,16 +614,24 @@ def process_trans(transid):
 				print(fps)
 	#out.release()
 	#************Upload detections***********
+	print('attempting to load stored ls_activities')
 	with open('archive/{}/ls_activities.pickle'.format(transid), 'rb') as f:
 		ls_activities = pickle.load(f)
+	ls_activities = json.loads(ls_activities)
+	print('loaded stored ls_activities')
 	print('CV_activities:')
 	print(cv_activities)
 	print('LS_activities:')
 	print(ls_activities)
 	if (len(cv_activities) > 0) or (len(ls_activities) > 0): #only send signal to postprocess if we have either a cv_activity or a ls_activity
 		if len(cv_activities) > 0:
-			cv_activities = sorted(cv_activities, key=lambda d: d['timestamp']) 
+			cv_activities = sorted(cv_activities, key=lambda d: d['timestamp'])
+			print('attempting to adjust cv_activities')
+			print(type(ls_activities))
+			print(ls_activities) 
 			adjust_cv_activities_timestamps(cv_activities, ls_activities)
+			ls_activities = str(ls_activities)
+			print('adjusted cv_activities')
 		data = {"cmd": "Done", "transid": transid, "timestamp": time.strftime("%Y%m%d-%H_%M_%S"), "cv_activities": cv_activities, "ls_activities": ls_activities}
 		mess = json.dumps(data)
 		channel, connection = initializeChannel()
@@ -664,4 +672,4 @@ if __name__ == '__main__':
 		try:
 			main()
 		except Exception as e:
-			print(e)
+			print(traceback.format_exc())

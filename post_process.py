@@ -1,4 +1,4 @@
-######################################
+28######################################
 '''
 Date: Feb 07, 2023
 author: CV team
@@ -276,7 +276,7 @@ def gen_trans_summary(transid, cv_activities, ls_activities):
 		else:
 			cv_ret.append((cls_dict[act['class_id']], 'RETURN', act['timestamp']))
 
-	ls_recv = json.loads(ls_activities.replace('null', '-1'))
+	ls_recv = json.loads(ls_activities.replace('null', '-1').replace('None', '-1').replace('\'', '\"'))
 	ls_acts = ls_recv['user_activity_instance']['user_activities']
 	pick_acts = []
 	ret_acts = []
@@ -355,9 +355,10 @@ def gen_trans_summary(transid, cv_activities, ls_activities):
 		del act['activity_time']
 
 	trans_summary['activities'] = activities
+	logger.info('creating transaction_summary in post_archive')
 	with open("post_archive/{}/transaction_summary.json".format(transid), "w") as outfile:
 		json.dump(trans_summary, outfile, indent = 4)
-
+	logger.info('success creating transaction_summary')
 
 def postprocess(transid, base_url, headers, cv_activities, ls_activities):
 	logger.info("      Extracting TFRecords")
@@ -397,19 +398,19 @@ def postprocess(transid, base_url, headers, cv_activities, ls_activities):
 	logger.info("      Generating Video")
 	gen_video(transid)
 
-	if cfg.icount_mode:
-		logger.info("      Generating Transaction Summary")
-		gen_trans_summary(transid, cv_activities, ls_activities)
-		trans_json = json.load(open('post_archive/{}/transaction_summary.json'.format(transid), 'r'))
-		try:
-			response_activity = requests.put("{}/loyalty/machines/activity".format(base_url), json = trans_json, headers=headers)
-			if response_activity.status_code == 200:
-				logger.info("      Uploading activity-Success")
 
-		except Exception as e:
-			logger.info("      Uploading activity-Failed")
-			logger.info(response_activity.json())
-			logger.info(traceback.format_exc())
+	logger.info("      Generating Transaction Summary")
+	gen_trans_summary(transid, cv_activities, ls_activities)
+	trans_json = json.load(open('post_archive/{}/transaction_summary.json'.format(transid), 'r'))
+	try:
+		response_activity = requests.put("{}/loyalty/machines/activity".format(base_url), json = trans_json, headers=headers)
+		if response_activity.status_code == 200:
+			logger.info("      Uploading activity-Success")
+
+	except Exception as e:
+		logger.info("      Uploading activity-Failed")
+		logger.info(response_activity.json())
+		logger.info(traceback.format_exc())
 
 
 
@@ -426,16 +427,17 @@ def postprocess(transid, base_url, headers, cv_activities, ls_activities):
 		logger.info("      Uploading media-Failed")
 		logger.info(response_media.json())
 		logger.info(traceback.format_exc())
-
+	
 	if response_media.status_code == 200:
 		logger.info("      Uploading media-Success")
 		#os.system("rm -r archive/{}".format(transid))
 		os.system("rm -r post_archive/{}".format(transid))
 		os.system("rm -r post_archive/{}.zip".format(transid))
 		logger.info("      Cleaned Transaction")
+	
 	else:
 		logger.info("      Archiving Transaction / For batch processing")
-
+	
 class Communication():
 
 	def __init__(self):
