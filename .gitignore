@@ -9,4 +9,4 @@ __pycache__/
 *.tfrecord
 *.onnx
 *.pyc
-*configSrc.py
+utils_lite/configSrc.py
