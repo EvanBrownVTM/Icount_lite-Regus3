@@ -64,7 +64,7 @@ save_size = cfg.save_size
 display_mode = cfg.display_mode
 pika_flag = cfg.pika_flag
 cls_dict = cfg.cls_dict
-
+postprocess_video_mode = cfg.postprocess_video_mode
 #Initialization
 tsv_url = 'http://192.168.1.140:8085/tsv/flashapi'
 init_process = True

@@ -276,6 +276,8 @@ def gen_trans_summary(transid, cv_activities, ls_activities):
 		else:
 			cv_ret.append((cls_dict[act['class_id']], 'RETURN', act['timestamp']))
 
+	if type(ls_activities) is not str:
+		ls_activities = str(ls_activities)
 	ls_recv = json.loads(ls_activities.replace('null', '-1').replace('None', '-1').replace('\'', '\"'))
 	ls_acts = ls_recv['user_activity_instance']['user_activities']
 	pick_acts = []
