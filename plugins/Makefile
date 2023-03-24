@@ -34,8 +34,8 @@ TENSORRT_INCS=-I"/usr/local/TensorRT-7.1.3.4/include"
 TENSORRT_LIBS=-L"/usr/local/TensorRT-7.1.3.4/lib"
 
 # INCS and LIBS
-INCS=-I"/usr/local/cuda/include" $(TENSORRT_INCS) -I"/usr/local/include" -I"plugin"
-LIBS=-L"/usr/local/cuda/lib64" $(TENSORRT_LIBS) -L"/usr/local/lib" -Wl,--start-group -lnvinfer -lnvparsers -lnvinfer_plugin -lcudnn -lcublas -lcudart_static -lnvToolsExt -lcudart -lrt -ldl -lpthread -Wl,--end-group
+INCS=-I"/usr/local/cuda-11.0/include" $(TENSORRT_INCS) -I"/usr/local/include" -I"plugin"
+LIBS=-L"/usr/local/cuda-11.0/lib64" $(TENSORRT_LIBS) -L"/usr/local/lib" -Wl,--start-group -lnvinfer -lnvparsers -lnvinfer_plugin -lcudnn -lcublas -lcudart_static -lnvToolsExt -lcudart -lrt -ldl -lpthread -Wl,--end-group
 
 .PHONY: all clean
 
